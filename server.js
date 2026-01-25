@@ -10,6 +10,7 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/transactions", require("./routes/transactions"));
 
 const PORT = process.env.PORT || 3000;
