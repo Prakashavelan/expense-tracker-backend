@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { body, validationResult } = require("express-validator");
 
 const User = require("../models/User");
@@ -105,5 +106,50 @@ router.post(
     }
   }
 );
+
+//Forgot Password
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) return res.json({ msg: "User not found" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+
+  user.resetToken = token;
+  user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 min
+  await user.save();
+
+  // ✅ For now, return reset link (later email)
+  res.json({
+    msg: "Reset link generated. Check console.",
+    resetLink: `https://yourgithub.io/reset-password.html?token=${token}`
+  });
+});
+
+
+/* ✅ Reset Password */
+router.post("/reset-password/:token", async (req, res) => {
+  const { password } = req.body;
+  const token = req.params.token;
+
+  const user = await User.findOne({
+    resetToken: token,
+    resetTokenExpiry: { $gt: Date.now() }
+  });
+
+  if (!user) return res.json({ msg: "Token expired or invalid" });
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(password, salt);
+
+  user.resetToken = null;
+  user.resetTokenExpiry = null;
+
+  await user.save();
+
+  res.json({ msg: "Password reset successful ✅" });
+});
+
 
 module.exports = router;
