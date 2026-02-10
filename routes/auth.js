@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { body, validationResult } = require("express-validator");
 
 const User = require("../models/User");
+const sendEmail = require("../utils/sendEmail");
 
 const router = express.Router();
 
@@ -112,20 +113,33 @@ router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
   const user = await User.findOne({ email });
-  if (!user) return res.json({ msg: "User not found" });
 
+  if (!user)
+    return res.json({ msg: "If email exists, reset link sent." });
+
+  const crypto = require("crypto");
   const token = crypto.randomBytes(32).toString("hex");
 
   user.resetToken = token;
-  user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 min
+  user.resetTokenExpiry = Date.now() + 15 * 60 * 1000;
+
   await user.save();
 
-  // ✅ For now, return reset link (later email)
-  res.json({
-    msg: "Reset link generated. Check console.",
-    resetLink: `https://yourgithub.io/reset-password.html?token=${token}`
-  });
+  const resetLink =
+    `https://prakashavelan.github.io/Expense-Tracker/reset-password.html?token=${token}`;
+
+  const html = `
+    <h2>Password Reset</h2>
+    <p>Click below to reset your password:</p>
+    <a href="${resetLink}">${resetLink}</a>
+    <p>This link expires in 15 minutes.</p>
+  `;
+
+  await sendEmail(email, "Password Reset", html);
+
+  res.json({ msg: "Reset link sent to your email ✅" });
 });
+
 
 
 /* ✅ Reset Password */
